@@ -112,6 +112,7 @@ export class EventDB {
     return { validItems, invalidItems };
   }
 
+  /** Takes a DynamoDB Scan- or Query-Command and paginates through the table until DynamoDB stops returning results. */
   private async paginatedCommand(
     createCommand: ((input: QueryCommandInput) => QueryCommand) | ((input: ScanCommandInput) => ScanCommand),
   ): Promise<{ validItems: Event[]; invalidItems: Record<string, unknown>[] }> {
