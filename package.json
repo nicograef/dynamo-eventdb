@@ -1,7 +1,7 @@
 {
-  "name": "@nicograef/dynamo-events",
+  "name": "@nicograef/dynamo-eventdb",
   "version": "0.0.0",
-  "description": "Eventsourcing library for DynamoDB",
+  "description": "An event-sourcing database wrapper for DynamoDB.",
   "license": "MIT",
   "type": "module",
   "exports": "./dist/src/index.js",
