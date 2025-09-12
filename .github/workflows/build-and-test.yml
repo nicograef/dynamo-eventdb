@@ -1,4 +1,3 @@
-
 name: Build and Test
 
 on:
@@ -19,14 +18,13 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: '22'
+          cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
 
   build:
     runs-on: ubuntu-latest
-    needs: lint
     steps:
       - uses: actions/checkout@v4
       - name: Install pnpm
@@ -36,14 +34,13 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: '22'
+          cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
 
   test:
     runs-on: ubuntu-latest
-    needs: lint
     steps:
       - uses: actions/checkout@v4
       - name: Install pnpm
@@ -53,14 +50,13 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: '22'
+          cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
   integration-test:
     runs-on: ubuntu-latest
-    needs: lint
     services:
       dynamodb:
         image: amazon/dynamodb-local
@@ -75,8 +71,8 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
-          cache: "pnpm"
+          node-version: '22'
+          cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - name: Wait for DynamoDB Local to be ready
         run: |
