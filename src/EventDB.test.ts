@@ -55,7 +55,7 @@ describe('addNewEvent', () => {
     const type = 'book.borrowed';
     const subject = 'b111';
     const payload = { userId: 'u123' };
-    const event = await service.addNewEvent(source, type, subject, payload);
+    const event = await service.addNewEvent({ source, type, subject, payload });
 
     expect(dynamo.send).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -76,7 +76,7 @@ describe('addNewEvent', () => {
     const subject = '';
     const payload = { userId: 'u123' };
 
-    await expect(() => service.addNewEvent(source, type, subject, payload)).rejects.toThrow('Invalid event');
+    await expect(() => service.addNewEvent({ source, type, subject, payload })).rejects.toThrow('Invalid event');
 
     expect(dynamo.send).not.toHaveBeenCalled();
   });

@@ -48,7 +48,17 @@ export class EventDB {
     );
   }
 
-  public async addNewEvent(source: string, type: string, subject: string, payload: Record<string, unknown>): Promise<Event> {
+  public async addNewEvent({
+    source,
+    type,
+    subject,
+    payload,
+  }: {
+    source: string;
+    type: string;
+    subject: string;
+    payload: Record<string, unknown>;
+  }): Promise<Event> {
     const event: Event = {
       id: crypto.randomUUID(),
       source,
