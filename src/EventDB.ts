@@ -27,6 +27,9 @@ export class EventDB {
    * Creates a DynamoDB table in the required form for the EventDB.
    * The table will have "subject" as partition key and "time" as sort key.
    * This will also serve as documentation on how the table should look like.
+   *
+   * We cannot use `time` as sort key because then two events created in the same millisecond
+   * for the same subject would collide (i.e. override each other). Using `id` (a UUID) as sort key avoids this problem.
    */
   public static async createTable(dynamodbClient: DynamoDBClient, tableName: string): Promise<void> {
     await dynamodbClient.send(
@@ -34,20 +37,34 @@ export class EventDB {
         TableName: tableName,
         KeySchema: [
           { AttributeName: 'subject', KeyType: KeyType.HASH },
-          { AttributeName: 'time', KeyType: KeyType.RANGE },
+          { AttributeName: 'id', KeyType: KeyType.RANGE },
         ],
         AttributeDefinitions: [
           { AttributeName: 'subject', AttributeType: ScalarAttributeType.S },
-          { AttributeName: 'time', AttributeType: ScalarAttributeType.N },
+          { AttributeName: 'id', AttributeType: ScalarAttributeType.N },
         ],
         BillingMode: BillingMode.PAY_PER_REQUEST,
       }),
     );
   }
 
+  public async addNewEvent(source: string, type: string, subject: string, payload: Record<string, unknown>): Promise<Event> {
+    const event: Event = {
+      id: crypto.randomUUID(),
+      source,
+      type,
+      subject,
+      time: Date.now(),
+      data: payload,
+    };
+
+    await this.addEvent(event);
+
+    return event;
+  }
   /** Adds the given event to the DynamoDB table. */
-  public async addEvent(rawEvent: Event): Promise<void> {
-    const { error: validationError, data: parsedEvent } = EventSchema.safeParse(rawEvent);
+  public async addEvent(event: Event): Promise<void> {
+    const { error: validationError, data: parsedEvent } = EventSchema.safeParse(event);
     if (validationError) {
       throw new Error(`Invalid event: ${validationError.message}`);
     }
@@ -64,6 +81,8 @@ export class EventDB {
   public async fetchAllEvents(): Promise<{ validItems: Event[]; invalidItems: Record<string, unknown>[] }> {
     const { validItems, invalidItems } = await this.paginatedCommand((input: ScanCommandInput) => new ScanCommand(input));
 
+    validItems.sort((a, b) => a.time - b.time);
+
     return { validItems, invalidItems };
   }
 
@@ -78,6 +97,8 @@ export class EventDB {
           ScanIndexForward: true, // true = ascending (oldest first), false = descending
         }),
     );
+
+    validItems.sort((a, b) => a.time - b.time);
 
     return { validItems, invalidItems };
   }
