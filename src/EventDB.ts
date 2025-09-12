@@ -41,7 +41,7 @@ export class EventDB {
         ],
         AttributeDefinitions: [
           { AttributeName: 'subject', AttributeType: ScalarAttributeType.S },
-          { AttributeName: 'id', AttributeType: ScalarAttributeType.N },
+          { AttributeName: 'id', AttributeType: ScalarAttributeType.S },
         ],
         BillingMode: BillingMode.PAY_PER_REQUEST,
       }),
@@ -104,7 +104,6 @@ export class EventDB {
           ...input,
           KeyConditionExpression: 'subject = :subject',
           ExpressionAttributeValues: { ':subject': subject },
-          ScanIndexForward: true, // true = ascending (oldest first), false = descending
         }),
     );
 
