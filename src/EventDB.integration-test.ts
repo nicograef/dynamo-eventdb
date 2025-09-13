@@ -54,18 +54,26 @@ test('fetch all events', async () => {
     subject: 'b111',
     data: { userId: 'u123' },
   });
+  await new Promise((r) => setTimeout(r, 10)); // ensure different timestamps
   const event2 = makeEvent({
     type: 'book.returned',
     subject: 'b222',
     data: {},
   });
+  await new Promise((r) => setTimeout(r, 10)); // ensure different timestamps
+  const event3 = makeEvent({
+    type: 'book.returned',
+    subject: 'b111',
+    data: {},
+  });
 
   await table.addEvent(event1);
   await table.addEvent(event2);
+  await table.addEvent(event3);
   const { validItems, invalidItems } = await table.fetchAllEvents();
 
   expect(invalidItems).toHaveLength(0);
-  expect(validItems).toEqual([event1, event2]);
+  expect(validItems).toEqual([event1, event2, event3]);
 });
 
 test('fetch events for subject', async () => {

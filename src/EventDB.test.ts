@@ -22,7 +22,7 @@ describe('addEvent', () => {
       expect.objectContaining({
         input: expect.objectContaining({
           TableName: 'BookEvents',
-          Item: event,
+          Item: { ...event, time_type: `${event.time}_${event.type}`, pk_all: 'all' },
         }),
       }),
     );
@@ -61,7 +61,7 @@ describe('addNewEvent', () => {
       expect.objectContaining({
         input: expect.objectContaining({
           TableName: 'BookEvents',
-          Item: event,
+          Item: { ...event, time_type: `${event.time}_${event.type}`, pk_all: 'all' },
         }),
       }),
     );
