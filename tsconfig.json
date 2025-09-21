@@ -17,5 +17,6 @@
     "typeRoots": ["./node_modules/@types"],
     "verbatimModuleSyntax": true
   },
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "reports", "dist", "**/*.js", "**/*.cjs", "**/*.mjs"]
 }

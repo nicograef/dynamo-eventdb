@@ -15,6 +15,6 @@ export const EventSchema = z.object({
     ),
   source: z.string().url().describe('The source of the event. Must be a valid URI-Reference. E.g. https://library.example.com'),
   time: z.number().int().min(1).describe('The timestamp of when the event occurred.'),
-  data: z.record(z.unknown()).describe('The event payload.'),
+  data: z.record(z.string(), z.unknown()).describe('The event payload.'),
 });
 export type Event = z.infer<typeof EventSchema>;
