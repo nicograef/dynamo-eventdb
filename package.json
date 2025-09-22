@@ -21,6 +21,7 @@
     "format": "prettier --write './**/*.{json,md,ts,js}'",
     "lint": "eslint --fix --max-warnings=0 './src/**/*.{ts,js}'",
     "prepare": "husky",
+    "test:coverage": "vitest run --config vitest.config.coverage.ts",
     "test:integration": "vitest run --config vitest.config.integration.ts",
     "test": "vitest run --config vitest.config.ts",
     "prepublishOnly": "pnpm run build"
