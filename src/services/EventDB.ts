@@ -1,4 +1,4 @@
-import { CreateTableCommand, KeyType, ProjectionType, ScalarAttributeType, type DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { BillingMode, CreateTableCommand, KeyType, ProjectionType, ScalarAttributeType, type DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { BatchWriteCommand, DynamoDBDocumentClient, QueryCommand, type QueryCommandInput } from '@aws-sdk/lib-dynamodb';
 import { Cloudevent, type EventCandidate, type Event, type DynamoEvent } from './Cloudevent.js';
 import type { Logger } from '@aws-lambda-powertools/logger';
@@ -42,6 +42,7 @@ export class EventDB {
     await dynamodbClient.send(
       new CreateTableCommand({
         TableName: tableName,
+        BillingMode: BillingMode.PAY_PER_REQUEST,
         KeySchema: [
           { AttributeName: 'subject', KeyType: KeyType.HASH },
           { AttributeName: 'time_type', KeyType: KeyType.RANGE },
