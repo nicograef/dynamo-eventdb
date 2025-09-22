@@ -1,6 +1,6 @@
 {
   "name": "@nicograef/dynamo-eventdb",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "An event-sourcing database wrapper for DynamoDB.",
   "author": {
     "name": "Nico Gräf"
@@ -13,7 +13,6 @@
   },
   "files": [
     "dist",
-    "src/lambdas/publish.lambda.ts",
     "LICENSE",
     "README.md"
   ],

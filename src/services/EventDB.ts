@@ -1,6 +1,6 @@
 import { BillingMode, CreateTableCommand, KeyType, ProjectionType, ScalarAttributeType, type DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand, QueryCommand, type QueryCommandInput } from '@aws-sdk/lib-dynamodb';
-import { EventSchema, type Event } from './types.js';
+import { BatchWriteCommand, DynamoDBDocumentClient, QueryCommand, type QueryCommandInput } from '@aws-sdk/lib-dynamodb';
+import { type EventCandidate, EventSchema, type Event } from './types.js';
 
 export class EventDB {
   private readonly dynamodb: Pick<DynamoDBDocumentClient, 'send'>;
@@ -64,48 +64,93 @@ export class EventDB {
   }
 
   /** Creates a new event with the given attributes (source, type, subject, payload) and adds it to the database. */
-  public async addNewEvent({
-    source,
-    type,
-    subject,
-    payload,
-  }: {
-    source: string;
-    type: string;
-    subject: string;
-    payload: Record<string, unknown>;
-  }): Promise<Event> {
-    const event: Event = {
+  public async addNewEvents(candidates: EventCandidate[]): Promise<Event[]> {
+    const events: Event[] = candidates.map((candidate) => ({
+      ...candidate,
       id: crypto.randomUUID(),
-      source,
-      type,
-      subject,
       time: Date.now(),
-      data: payload,
-    };
+    }));
 
-    await this.addEvent(event);
+    await this.addEvents(events);
 
-    return event;
+    return events;
   }
 
-  /** Adds the given event to the DynamoDB table. */
-  public async addEvent(event: Event): Promise<void> {
-    const { error: validationError, data: parsedEvent } = EventSchema.safeParse(event);
-    if (validationError) {
-      throw new Error(`Invalid event: ${validationError.message}`);
+  /** Writes multiple events in a single batch so they will be added to the database together. */
+  public async addEvents(events: Event[]): Promise<void> {
+    const errors: { id: string; error: string }[] = [];
+    const parsedEvents: Event[] = [];
+
+    for (const event of events) {
+      const { error: validationError, data: parsedEvent } = EventSchema.safeParse(event);
+      if (validationError) {
+        errors.push({ id: event.id, error: validationError.message });
+      } else {
+        parsedEvents.push(parsedEvent);
+      }
     }
 
+    if (errors.length > 0) {
+      throw new Error(`Invalid events: ${JSON.stringify(errors)}`);
+    }
+
+    const putRequests = parsedEvents.map((event) => ({
+      PutRequest: {
+        Item: { ...event, time_type: `${event.time}_${event.type}`, pk_all: 'all' },
+      },
+    }));
+
     await this.dynamodb.send(
-      new PutCommand({
-        TableName: this.name,
-        Item: {
-          ...parsedEvent,
-          time_type: `${parsedEvent.time}_${parsedEvent.type}`,
-          pk_all: 'all',
-        },
+      new BatchWriteCommand({
+        RequestItems: { [this.name]: putRequests },
       }),
     );
+  }
+
+  /** Retrieves a single event by its ID. */
+  public async getEvent(id: string): Promise<Event | null> {
+    const indexResult = await this.dynamodb.send(
+      new QueryCommand({
+        TableName: this.name,
+        IndexName: 'AllEventsById',
+        KeyConditionExpression: 'id = :id',
+        ExpressionAttributeValues: { ':id': id },
+        Limit: 1,
+      }),
+    );
+
+    const eventKeys = indexResult.Items?.[0];
+    if (!eventKeys) {
+      return null;
+    }
+
+    // since the index only projects the keys, we need to fetch the full item
+    // using the primary key (subject + time_type)
+    if (!eventKeys.subject || !eventKeys.time_type) {
+      throw new Error('ID-index is missing subject or time_type attribute');
+    }
+
+    const result = await this.dynamodb.send(
+      new QueryCommand({
+        TableName: this.name,
+        KeyConditionExpression: 'subject = :subject AND time_type = :time_type',
+        ExpressionAttributeValues: { ':subject': eventKeys.subject, ':time_type': eventKeys.time_type },
+        Limit: 1,
+      }),
+    );
+
+    const event = result.Items?.[0];
+    if (!event) {
+      throw new Error('Event from ID-index could not be found in database.');
+    }
+
+    // validate the full item
+    const { error: parseError, data: parsedEvent } = EventSchema.safeParse(event);
+    if (parseError) {
+      throw new Error(`Event is invalid: ${parseError.message}`);
+    }
+
+    return parsedEvent;
   }
 
   /** Returns all events sorted by time. */

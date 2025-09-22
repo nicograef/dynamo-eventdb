@@ -36,7 +36,7 @@ export class EventDB extends Stack {
       encryptionKey: props.encryptionKey,
     });
 
-    const publishHandlerEntry = path.join(__dirname, '..', 'lambdas', 'publish.lambda.ts');
+    const publishHandlerEntry = path.join(__dirname, '..', 'lambdas', 'publish.lambda.js');
     this.publishLambda = new Lambda(this, 'PublishEvents', {
       isProdEnv: props.isProdEnv,
       handlerPath: publishHandlerEntry,

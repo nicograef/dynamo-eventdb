@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import { EventDB } from './EventDB.js';
-import { type Event } from './types.js';
+import { type Event, type EventCandidate } from './types.js';
 
 describe('addEvent', () => {
   test('add event into table with correct primary key', async () => {
@@ -16,13 +16,14 @@ describe('addEvent', () => {
     };
 
     const table = new EventDB(dynamo, 'BookEvents');
-    await table.addEvent(event);
+    await table.addEvents([event]);
 
     expect(dynamo.send).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
-          TableName: 'BookEvents',
-          Item: { ...event, time_type: `${event.time}_${event.type}`, pk_all: 'all' },
+          RequestItems: expect.objectContaining({
+            BookEvents: [{ PutRequest: { Item: { ...event, time_type: `${event.time}_${event.type}`, pk_all: 'all' } } }],
+          }),
         }),
       }),
     );
@@ -40,7 +41,7 @@ describe('addEvent', () => {
     };
 
     const table = new EventDB(dynamo, 'BookEvents');
-    await expect(() => table.addEvent(invalidEvent as unknown as Event)).rejects.toThrow('Invalid event');
+    await expect(() => table.addEvents([invalidEvent as unknown as Event])).rejects.toThrow('Invalid event');
 
     expect(dynamo.send).not.toHaveBeenCalled();
   });
@@ -50,18 +51,27 @@ describe('addNewEvent', () => {
   test('creates and adds event', async () => {
     const dynamo = { send: vi.fn() };
     const service = new EventDB(dynamo, 'BookEvents');
+    const candidate: EventCandidate = {
+      source: 'https://library.example.com',
+      type: 'book.borrowed',
+      subject: 'b111',
+      data: { userId: 'u123' },
+    };
 
-    const source = 'https://library.example.com';
-    const type = 'book.borrowed';
-    const subject = 'b111';
-    const payload = { userId: 'u123' };
-    const event = await service.addNewEvent({ source, type, subject, payload });
+    const events = await service.addNewEvents([candidate]);
 
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      ...candidate,
+      id: expect.any(String),
+      time: expect.any(Number),
+    });
     expect(dynamo.send).toHaveBeenCalledWith(
       expect.objectContaining({
         input: expect.objectContaining({
-          TableName: 'BookEvents',
-          Item: { ...event, time_type: `${event.time}_${event.type}`, pk_all: 'all' },
+          RequestItems: expect.objectContaining({
+            BookEvents: [{ PutRequest: { Item: { ...events[0], time_type: `${events[0]!.time}_${events[0]!.type}`, pk_all: 'all' } } }],
+          }),
         }),
       }),
     );
@@ -71,12 +81,14 @@ describe('addNewEvent', () => {
     const dynamo = { send: vi.fn() };
     const service = new EventDB(dynamo, 'BookEvents');
 
-    const source = 'not-a-url';
-    const type = 'b';
-    const subject = '';
-    const payload = { userId: 'u123' };
+    const candidate: EventCandidate = {
+      source: 'not-a-url',
+      type: 'b',
+      subject: '',
+      data: { userId: 'u123' },
+    };
 
-    await expect(() => service.addNewEvent({ source, type, subject, payload })).rejects.toThrow('Invalid event');
+    await expect(() => service.addNewEvents([candidate])).rejects.toThrow('Invalid event');
 
     expect(dynamo.send).not.toHaveBeenCalled();
   });

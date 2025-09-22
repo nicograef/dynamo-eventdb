@@ -42,8 +42,7 @@ test('add events', async () => {
     data: {},
   });
 
-  await table.addEvent(event1);
-  await table.addEvent(event2);
+  await table.addEvents([event1, event2]);
 });
 
 test('fetch all events', async () => {
@@ -67,9 +66,7 @@ test('fetch all events', async () => {
     data: {},
   });
 
-  await table.addEvent(event1);
-  await table.addEvent(event2);
-  await table.addEvent(event3);
+  await table.addEvents([event1, event2, event3]);
   const { validItems, invalidItems } = await table.fetchAllEvents();
 
   expect(invalidItems).toHaveLength(0);
@@ -97,11 +94,9 @@ test('fetch events for subject', async () => {
     data: {},
   });
 
-  await table.addEvent(event1);
-  await table.addEvent(event2);
-  await table.addEvent(event3);
-
+  await table.addEvents([event1, event2, event3]);
   const { validItems, invalidItems } = await table.fetchEventsForSubject('b111');
+
   expect(invalidItems).toHaveLength(0);
   expect(validItems).toEqual([event1, event3]);
 });

@@ -7,5 +7,5 @@
     "outDir": "dist",
     "sourceMap": true
   },
-  "include": ["src/cdk/index.ts", "src/services/index.ts"]
+  "include": ["src/cdk/index.ts", "src/services/index.ts", "src/lambdas"]
 }

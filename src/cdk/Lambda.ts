@@ -68,7 +68,6 @@ export class Lambda extends Construct {
     this.function.addEventSource(
       new DynamoEventSource(table, {
         startingPosition: StartingPosition.LATEST,
-        filters: [{ eventName: ['INSERT'] }],
         reportBatchItemFailures: true,
       }),
     );
