@@ -51,7 +51,7 @@ export class EventTable extends Construct {
       ],
       localSecondaryIndexes: [
         {
-          // For queries like "get all eventy of this type for this subject"
+          // For queries like "get all events of this type for this subject"
           indexName: 'SubjectEventsByType',
           sortKey: { name: 'type', type: AttributeType.STRING },
           projectionType: ProjectionType.ALL,

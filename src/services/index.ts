@@ -1,2 +1,2 @@
 export { EventDB } from './EventDB.js';
-export { type Event, EventSchema } from './types.js';
+export type { Event, EventCandidate } from './Cloudevent.js';

@@ -1,17 +1,20 @@
-import { BillingMode, CreateTableCommand, KeyType, ProjectionType, ScalarAttributeType, type DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { CreateTableCommand, KeyType, ProjectionType, ScalarAttributeType, type DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { BatchWriteCommand, DynamoDBDocumentClient, QueryCommand, type QueryCommandInput } from '@aws-sdk/lib-dynamodb';
-import { type EventCandidate, EventSchema, type Event } from './types.js';
+import { Cloudevent, type EventCandidate, type Event, type DynamoEvent } from './Cloudevent.js';
+import type { Logger } from '@aws-lambda-powertools/logger';
 
 export class EventDB {
+  private readonly logger: Pick<Logger, 'error'>;
   private readonly dynamodb: Pick<DynamoDBDocumentClient, 'send'>;
   private readonly name: string;
 
-  constructor(dynamodb: Pick<DynamoDBDocumentClient, 'send'>, name: string) {
+  constructor(logger: Pick<Logger, 'error'>, dynamodb: Pick<DynamoDBDocumentClient, 'send'>, name: string) {
+    this.logger = logger;
     this.dynamodb = dynamodb;
     this.name = name;
   }
 
-  public static instance(dynamodbClient: DynamoDBClient, name: string): EventDB {
+  public static instance(logger: Pick<Logger, 'error'>, dynamodbClient: DynamoDBClient, name: string): EventDB {
     const documentClient = DynamoDBDocumentClient.from(dynamodbClient, {
       marshallOptions: {
         convertEmptyValues: false,
@@ -20,7 +23,7 @@ export class EventDB {
       },
       unmarshallOptions: { wrapNumbers: false },
     });
-    return new EventDB(documentClient, name);
+    return new EventDB(logger, documentClient, name);
   }
 
   /**
@@ -31,8 +34,9 @@ export class EventDB {
    * to appear at the same time without colliding (i.e. they would overwrite each other since they have the same primary key = partition key + sort key).
    * This also allows querying events for a specific subject in chronological order, since the sort key starts with the time.
    *
-   * Additionally, we create one global secondary index:
+   * Additionally, we create two global secondary indexes:
    * - `AllEventsByTime`: Allows querying all events in the database sorted by time.
+   * - `AllEventsById`: Allows querying a specific event by its ID.
    */
   public static async createTable(dynamodbClient: DynamoDBClient, tableName: string): Promise<void> {
     await dynamodbClient.send(
@@ -50,6 +54,7 @@ export class EventDB {
         ],
         GlobalSecondaryIndexes: [
           {
+            // For LIST queries that fetch events in time order, regardless of subject.
             IndexName: 'AllEventsByTime',
             KeySchema: [
               { AttributeName: 'pk_all', KeyType: KeyType.HASH },
@@ -57,19 +62,42 @@ export class EventDB {
             ],
             Projection: { ProjectionType: ProjectionType.ALL },
           },
+          {
+            // For GET queries that fetch a specific event by its id.
+            IndexName: 'AllEventsById',
+            KeySchema: [{ AttributeName: 'id', KeyType: KeyType.HASH }],
+            Projection: { ProjectionType: ProjectionType.KEYS_ONLY },
+          },
         ],
-        BillingMode: BillingMode.PAY_PER_REQUEST,
+        LocalSecondaryIndexes: [
+          {
+            // For queries like "get all events of this type for this subject"
+            IndexName: 'SubjectEventsByType',
+            KeySchema: [{ AttributeName: 'type', KeyType: KeyType.RANGE }],
+            Projection: { ProjectionType: ProjectionType.ALL },
+          },
+        ],
       }),
     );
   }
 
   /** Creates a new event with the given attributes (source, type, subject, payload) and adds it to the database. */
   public async addNewEvents(candidates: EventCandidate[]): Promise<Event[]> {
-    const events: Event[] = candidates.map((candidate) => ({
-      ...candidate,
-      id: crypto.randomUUID(),
-      time: Date.now(),
-    }));
+    const errors: Error[] = [];
+    const events: Event[] = [];
+
+    for (const candidate of candidates) {
+      const { event, error } = Cloudevent.new(candidate);
+      if (error) {
+        errors.push(error);
+      } else {
+        events.push(event);
+      }
+    }
+
+    if (errors.length > 0) {
+      throw new Error(`Failed to create events: ${errors.map((e) => e.message).join('; ')}`);
+    }
 
     await this.addEvents(events);
 
@@ -78,26 +106,24 @@ export class EventDB {
 
   /** Writes multiple events in a single batch so they will be added to the database together. */
   public async addEvents(events: Event[]): Promise<void> {
-    const errors: { id: string; error: string }[] = [];
-    const parsedEvents: Event[] = [];
+    const errors: Error[] = [];
+    const dynamoEvents: DynamoEvent[] = [];
 
     for (const event of events) {
-      const { error: validationError, data: parsedEvent } = EventSchema.safeParse(event);
-      if (validationError) {
-        errors.push({ id: event.id, error: validationError.message });
+      const { dynamoEvent, error } = Cloudevent.toDynamo(event);
+      if (error) {
+        errors.push(error);
       } else {
-        parsedEvents.push(parsedEvent);
+        dynamoEvents.push(dynamoEvent);
       }
     }
 
     if (errors.length > 0) {
-      throw new Error(`Invalid events: ${JSON.stringify(errors)}`);
+      throw new Error(`Failed to convert events to DynamoDB format: ${errors.map((e) => e.message).join('; ')}`);
     }
 
-    const putRequests = parsedEvents.map((event) => ({
-      PutRequest: {
-        Item: { ...event, time_type: `${event.time}_${event.type}`, pk_all: 'all' },
-      },
+    const putRequests = dynamoEvents.map((event) => ({
+      PutRequest: { Item: event },
     }));
 
     await this.dynamodb.send(
@@ -139,18 +165,17 @@ export class EventDB {
       }),
     );
 
-    const event = result.Items?.[0];
-    if (!event) {
+    const dynamoEvent = result.Items?.[0];
+    if (!dynamoEvent) {
       throw new Error('Event from ID-index could not be found in database.');
     }
 
-    // validate the full item
-    const { error: parseError, data: parsedEvent } = EventSchema.safeParse(event);
-    if (parseError) {
-      throw new Error(`Event is invalid: ${parseError.message}`);
+    const { event, error } = Cloudevent.fromDynamo(dynamoEvent as DynamoEvent);
+    if (error) {
+      throw new Error(`Event is invalid: ${error.message}`);
     }
 
-    return parsedEvent;
+    return event;
   }
 
   /** Returns all events sorted by time. */
@@ -195,11 +220,12 @@ export class EventDB {
 
       if (result.Items) {
         for (const item of result.Items) {
-          const { success, data } = EventSchema.safeParse(item);
-          if (success) {
-            validItems.push(data);
-          } else {
+          const { event, error } = Cloudevent.fromDynamo(item as DynamoEvent);
+          if (error) {
+            this.logger.error('Failed to parse event from database', { error, item });
             invalidItems.push(item);
+          } else {
+            validItems.push(event);
           }
         }
       }
