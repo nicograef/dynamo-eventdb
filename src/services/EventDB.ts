@@ -47,10 +47,12 @@ export class EventDB {
           { AttributeName: 'time_type', KeyType: KeyType.RANGE },
         ],
         AttributeDefinitions: [
+          { AttributeName: 'id', AttributeType: ScalarAttributeType.S },
+          { AttributeName: 'type', AttributeType: ScalarAttributeType.S },
           { AttributeName: 'subject', AttributeType: ScalarAttributeType.S },
+          { AttributeName: 'time', AttributeType: ScalarAttributeType.N },
           { AttributeName: 'time_type', AttributeType: ScalarAttributeType.S },
           { AttributeName: 'pk_all', AttributeType: ScalarAttributeType.S },
-          { AttributeName: 'time', AttributeType: ScalarAttributeType.N },
         ],
         GlobalSecondaryIndexes: [
           {
@@ -73,7 +75,10 @@ export class EventDB {
           {
             // For queries like "get all events of this type for this subject"
             IndexName: 'SubjectEventsByType',
-            KeySchema: [{ AttributeName: 'type', KeyType: KeyType.RANGE }],
+            KeySchema: [
+              { AttributeName: 'subject', KeyType: KeyType.HASH },
+              { AttributeName: 'type', KeyType: KeyType.RANGE },
+            ],
             Projection: { ProjectionType: ProjectionType.ALL },
           },
         ],
@@ -134,7 +139,7 @@ export class EventDB {
   }
 
   /** Retrieves a single event by its ID. */
-  public async getEvent(id: string): Promise<Event | null> {
+  public async fetchEvent(id: string): Promise<Event | null> {
     const indexResult = await this.dynamodb.send(
       new QueryCommand({
         TableName: this.name,
@@ -196,6 +201,17 @@ export class EventDB {
       KeyConditionExpression: 'subject = :subject',
       ExpressionAttributeValues: { ':subject': subject },
       ScanIndexForward: true, // ascending order by time
+    });
+
+    return { validItems, invalidItems };
+  }
+
+  public async fetchEventsForSubjectAndType(subject: string, type: string): Promise<{ validItems: Event[]; invalidItems: Record<string, unknown>[] }> {
+    const { validItems, invalidItems } = await this.paginatedQuery({
+      IndexName: 'SubjectEventsByType',
+      KeyConditionExpression: 'subject = :subject AND type = :type',
+      ExpressionAttributeValues: { ':subject': subject, ':type': type },
+      ScanIndexForward: true, // ascending order by time?
     });
 
     return { validItems, invalidItems };
