@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "alwaysStrict": true,
-    "declaration": true,
     "esModuleInterop": true,
     "isolatedModules": true,
     "lib": ["es2023"],
@@ -9,14 +8,11 @@
     "moduleDetection": "force",
     "moduleResolution": "nodenext",
     "noUncheckedIndexedAccess": true,
-    "outDir": "dist",
     "resolveJsonModule": true,
-    "sourceMap": true,
     "strict": true,
     "target": "ES2023",
     "typeRoots": ["./node_modules/@types"],
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "reports", "dist", "**/*.js", "**/*.cjs", "**/*.mjs"]
+  "include": ["src"],
 }

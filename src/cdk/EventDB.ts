@@ -4,12 +4,16 @@ import type { Construct } from 'constructs';
 import type { IKey } from 'aws-cdk-lib/aws-kms';
 import { Topic } from './Topic.js';
 import { Lambda } from './Lambda.js';
+import { fileURLToPath } from 'url';
+import path from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export type EventDBProps = {
   readonly isProdEnv: boolean;
   readonly tablename: string;
   readonly subscriptionAccounts: string[];
-  readonly publishLambdaPath: string;
   readonly encryptionKey?: IKey;
 } & StackProps;
 
@@ -32,9 +36,10 @@ export class EventDB extends Stack {
       encryptionKey: props.encryptionKey,
     });
 
+    const publishHandlerEntry = path.join(__dirname, '..', 'lambdas', 'publish.lambda.ts');
     this.publishLambda = new Lambda(this, 'PublishEvents', {
       isProdEnv: props.isProdEnv,
-      handlerPath: props.publishLambdaPath,
+      handlerPath: publishHandlerEntry,
       description: 'Lambda to publish events to the event topic',
       encryptionKey: props.encryptionKey,
       environment: {
