@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const publishHandlerPath = path.join(__dirname, '..', 'lambdas', 'publish.lambda.ts');
 
-export type PublishLambdaProps = {
+type PublishLambdaProps = {
   readonly isProdEnv: boolean;
   readonly eventTable: ITable;
   readonly eventTopic: Pick<ITopic, 'topicArn' | 'grantPublish'>;

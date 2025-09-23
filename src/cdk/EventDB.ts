@@ -20,8 +20,8 @@ export class EventDB extends Stack {
   constructor(scope: Construct, id: string, props: EventDBProps) {
     super(scope, id, props);
 
-    this.eventTable = new TableV2(this, id, {
-      tableName: id,
+    this.eventTable = new TableV2(this, `${id}DB`, {
+      tableName: `${id}DB`,
       removalPolicy: props.isProdEnv ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
       encryption: props.encryptionKey ? TableEncryptionV2.customerManagedKey(props.encryptionKey) : undefined,
       partitionKey: { name: 'subject', type: AttributeType.STRING },

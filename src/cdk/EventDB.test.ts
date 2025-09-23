@@ -20,7 +20,7 @@ test('synthesizes a non-prod stack', () => {
   template.hasResource('AWS::DynamoDB::GlobalTable', {
     DeletionPolicy: 'Delete',
     UpdateReplacePolicy: 'Delete',
-    Properties: { TableName: 'TestEvents' },
+    Properties: { TableName: 'TestEventsDB' },
   });
   template.hasResource('AWS::SNS::Topic', {
     Properties: { TopicName: 'TestEventsTopic' },
@@ -46,7 +46,7 @@ test('synthesizes a prod PublishLambda with longer log retention and no dev flag
   template.hasResource('AWS::DynamoDB::GlobalTable', {
     DeletionPolicy: 'Retain',
     UpdateReplacePolicy: 'Retain',
-    Properties: { TableName: 'TestEvents' },
+    Properties: { TableName: 'TestEventsDB' },
   });
   template.hasResource('AWS::SNS::Topic', {
     Properties: { TopicName: 'TestEventsTopic' },
@@ -73,7 +73,7 @@ test('grants KMS encrypt/decrypt permissions when encryptionKey is provided', ()
 
   template.hasResource('AWS::DynamoDB::GlobalTable', {
     Properties: {
-      TableName: 'TestEvents',
+      TableName: 'TestEventsDB',
       SSESpecification: { SSEEnabled: true, SSEType: 'KMS' },
       Replicas: Match.arrayWith([
         Match.objectLike({
