@@ -2,13 +2,9 @@ import { Stack, type StackProps } from 'aws-cdk-lib';
 import { EventTable } from './EventTable.js';
 import type { Construct } from 'constructs';
 import type { IKey } from 'aws-cdk-lib/aws-kms';
-import { Topic } from './Topic.js';
-import { Lambda } from './Lambda.js';
-import { fileURLToPath } from 'url';
-import path from 'node:path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { PublishLambda } from './PublishLambda.js';
+import { AccountPrincipal } from 'aws-cdk-lib/aws-iam';
+import { Topic } from 'aws-cdk-lib/aws-sns';
 
 export type EventDBProps = {
   readonly isProdEnv: boolean;
@@ -18,37 +14,34 @@ export type EventDBProps = {
 } & StackProps;
 
 export class EventDB extends Stack {
-  public readonly table: EventTable;
-  public readonly topic: Topic;
-  private readonly publishLambda: Lambda;
+  public readonly eventTable: EventTable;
+  public readonly eventTopic: Topic;
+  public readonly publishLambda: PublishLambda;
 
   constructor(scope: Construct, id: string, props: EventDBProps) {
     super(scope, id, props);
 
-    this.table = new EventTable(this, props.tablename, {
+    this.eventTable = new EventTable(this, props.tablename, {
       isProdEnv: props.isProdEnv,
       encryptionKey: props.encryptionKey,
     });
 
-    this.topic = new Topic(this, `${props.tablename}Topic`, {
-      description: `Topic for ${props.tablename}`,
-      subscriptionAccounts: props.subscriptionAccounts,
-      encryptionKey: props.encryptionKey,
+    this.eventTopic = new Topic(this, `${props.tablename}Topic`, {
+      topicName: id,
+      displayName: `Topic for ${props.tablename}`,
+      masterKey: props.encryptionKey,
+      enforceSSL: true,
     });
 
-    const publishHandlerEntry = path.join(__dirname, '..', 'lambdas', 'publish.lambda.js');
-    this.publishLambda = new Lambda(this, 'PublishEvents', {
+    for (const id of props.subscriptionAccounts) {
+      this.eventTopic.grantSubscribe(new AccountPrincipal(id));
+    }
+
+    this.publishLambda = new PublishLambda(this, {
       isProdEnv: props.isProdEnv,
-      handlerPath: publishHandlerEntry,
-      description: 'Lambda to publish events to the event topic',
+      eventTable: this.eventTable.table,
+      eventTopic: this.eventTopic,
       encryptionKey: props.encryptionKey,
-      environment: {
-        EVENT_TOPIC_ARN: this.topic.topicArn,
-      },
     });
-
-    this.table.grantStreamRead(this.publishLambda.function);
-    this.publishLambda.addDynamoEventSource(this.table.table);
-    this.topic.grantPublish(this.publishLambda.function);
   }
 }

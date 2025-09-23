@@ -69,18 +69,18 @@ export class EventTable extends Construct {
   }
 
   public grantReadData(grantee: IGrantable) {
-    this.table.grantReadData(grantee);
+    return this.table.grantReadData(grantee);
   }
 
   public grantWriteData(grantee: IGrantable) {
-    this.table.grantWriteData(grantee);
+    return this.table.grantWriteData(grantee);
   }
 
   public grantReadWriteData(grantee: IGrantable) {
-    this.table.grantReadWriteData(grantee);
+    return this.table.grantReadWriteData(grantee);
   }
 
   public grantStreamRead(grantee: IGrantable) {
-    this.table.grantStreamRead(grantee);
+    return this.table.grantStreamRead(grantee);
   }
 }

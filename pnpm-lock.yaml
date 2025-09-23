@@ -48,6 +48,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^3.2.4
         version: 3.2.4(vitest@3.2.4(@types/node@24.5.2)(yaml@2.8.1))
+      esbuild:
+        specifier: ^0.25.10
+        version: 0.25.10
       eslint:
         specifier: ^9.36.0
         version: 9.36.0
